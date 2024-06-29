@@ -1,0 +1,237 @@
+Folder PATH listing for volume data
+Volume serial number is 779C-D020
+D:.
+¦   .env
+¦   coder.bat
+¦   codes.txt
+¦   config.py
+¦   main.py
+¦   trHere's
+¦   utils.py
+¦   
++---data
+¦   ¦   fetch_data.py
+¦   ¦   preprocess_data.py
+¦   ¦   __init__.py
+¦   ¦   
+¦   +---__pycache__
+¦           fetch_data.cpython-312.pyc
+¦           preprocess_data.cpython-312.pyc
+¦           __init__.cpython-312.pyc
+¦           
++---images
++---logs
+¦       trader.log
+¦       
++---trading
+¦   ¦   analyze_market.py
+¦   ¦   create_order.py
+¦   ¦   manage_orders.py
+¦   ¦   manage_ordersHere
+¦   ¦   manage_ordersHere's
+¦   ¦   __init__.py
+¦   ¦   
+¦   +---__pycache__
+¦           analyze_market.cpython-312.pyc
+¦           create_order.cpython-312.pyc
+¦           manage_orders.cpython-312.pyc
+¦           __init__.cpython-312.pyc
+¦           
++---__pycache__
+        config.cpython-312.pyc
+        
+--------------------------------------------------- 
+D:\OneDrive\myproject\chatgpt-trader\robot_trader\config.py 
+ 
+import os
+import logging  # Add this line
+from dotenv import load_dotenv
+
+def load_config():
+    load_dotenv()
+    config = {
+        'api_token': os.getenv('OANDA_API_TOKEN'),
+        'account_id': os.getenv('OANDA_ACCOUNT_ID'),
+        'granularity': 'M15',
+        'instrument': 'EUR_USD',
+        'logging_level': logging.INFO,
+    }
+    return config
+ 
+--------------------------------------------------- 
+D:\OneDrive\myproject\chatgpt-trader\robot_trader\main.py 
+ 
+import logging
+import os
+from config import load_config
+from data.fetch_data import fetch_forex_data
+from data.preprocess_data import preprocess_data
+from trading.analyze_market import analyze_market
+from trading.create_order import create_order
+from trading.manage_orders import monitor_and_manage_orders
+import matplotlib.pyplot as plt
+
+def main():
+    config = load_config()
+    
+    # Ensure the logs and images directories exist
+    os.makedirs('logs', exist_ok=True)
+    os.makedirs('images', exist_ok=True)
+    
+    logging.basicConfig(filename='logs/trader.log', level=logging.INFO)
+    
+    logging.info("Fetching forex data...")
+    data = fetch_forex_data(config)
+    logging.info(f"Fetched forex data: {data}")
+    
+    logging.info(f"Data type: {type(data)}")
+
+    logging.info("Preprocessing data...")
+    try:
+        processed_data = preprocess_data(data)
+        logging.info(f"Processed data columns: {processed_data.columns}")
+        
+        # Check if 'time' and 'close' columns exist
+        if 'time' not in processed_data.columns or 'close' not in processed_data.columns:
+            logging.error("'time' or 'close' column is missing in processed data")
+            return
+
+        logging.info("Analyzing market data...")
+        analysis = analyze_market(processed_data)
+        
+        # Save the chart image
+        plt.plot(processed_data['time'], processed_data['close'])
+        image_name = f"images/forex_chart_{config.get('instrument', 'unknown')}_{config.get('granularity', 'unknown')}_{config.get('start_date', 'unknown')}_{config.get('end_date', 'unknown')}.png"
+        plt.savefig(image_name)
+        plt.close()
+        logging.info(f"Chart image saved as {image_name}")
+        
+        logging.info("Creating order...")
+        order_response = create_order(analysis, config)
+        logging.info(f"Order response: {order_response}")
+        
+        logging.info("Monitoring and managing orders...")
+        monitor_and_manage_orders(config)
+        logging.info("Process completed successfully.")
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+
+if __name__ == "__main__":
+    main()
+ 
+--------------------------------------------------- 
+D:\OneDrive\myproject\chatgpt-trader\robot_trader\utils.py 
+ 
+import json
+
+def save_to_json(data, filename):
+    with open(filename, 'w') as f:
+        json.dump(data, f, indent=4)
+ 
+--------------------------------------------------- 
+D:\OneDrive\myproject\chatgpt-trader\robot_trader\data\fetch_data.py 
+ 
+import logging
+from oandapyV20 import API
+from oandapyV20.endpoints.instruments import InstrumentsCandles
+
+def fetch_forex_data(config):
+    api = API(access_token=config['api_token'])
+    params = {
+        "granularity": config['granularity'],
+        "count": 100
+    }
+    r = InstrumentsCandles(instrument=config['instrument'], params=params)
+    try:
+        response = api.request(r)
+        logging.info(f"Fetched forex data: {response}")
+        return response.get('candles')
+    except Exception as e:
+        logging.error(f"Error fetching forex data: {e}")
+        return None
+ 
+--------------------------------------------------- 
+D:\OneDrive\myproject\chatgpt-trader\robot_trader\data\preprocess_data.py 
+ 
+import pandas as pd
+
+def preprocess_data(data):
+    if isinstance(data, list):
+        processed_data = {
+            'time': [entry['time'] for entry in data],
+            'open': [float(entry['mid']['o']) for entry in data],
+            'high': [float(entry['mid']['h']) for entry in data],
+            'low': [float(entry['mid']['l']) for entry in data],
+            'close': [float(entry['mid']['c']) for entry in data],
+            'volume': [entry['volume'] for entry in data]
+        }
+        return pd.DataFrame(processed_data)
+    else:
+        raise ValueError("Data format is not as expected.")
+ 
+--------------------------------------------------- 
+D:\OneDrive\myproject\chatgpt-trader\robot_trader\data\__init__.py 
+ 
+ 
+ 
+--------------------------------------------------- 
+D:\OneDrive\myproject\chatgpt-trader\robot_trader\trading\analyze_market.py 
+ 
+import logging
+
+def analyze_market(data):
+    logging.info("Analyzing market data...")
+    analysis_result = {
+        'action': 'BUY',
+        'entry_price': 1.06850,
+        'take_profit': 1.07070,
+        'stop_loss': 1.06700
+    }
+    return analysis_result
+ 
+--------------------------------------------------- 
+D:\OneDrive\myproject\chatgpt-trader\robot_trader\trading\create_order.py 
+ 
+import logging
+from oandapyV20 import API
+from oandapyV20.endpoints.orders import OrderCreate
+from oandapyV20.contrib.requests import MarketOrderRequest, TakeProfitDetails, StopLossDetails
+
+def create_order(analysis, config):
+    api = API(access_token=config['api_token'])
+    mkt_order = MarketOrderRequest(
+        instrument=config['instrument'],
+        units=10000 if analysis['action'] == 'BUY' else -10000,
+        takeProfitOnFill=TakeProfitDetails(price=analysis['take_profit']).data,
+        stopLossOnFill=StopLossDetails(price=analysis['stop_loss']).data
+    )
+    r = OrderCreate(accountID=config['account_id'], data=mkt_order.data)
+    try:
+        response = api.request(r)
+        logging.info(f"Order placed successfully: {response}")
+        return response
+    except Exception as e:
+        logging.error(f"Error placing order: {e}")
+        return None
+ 
+--------------------------------------------------- 
+D:\OneDrive\myproject\chatgpt-trader\robot_trader\trading\manage_orders.py 
+ 
+import logging
+from oandapyV20 import API
+from oandapyV20.endpoints.orders import OrderList, OrderReplace
+from oandapyV20.endpoints.positions import OpenPositions
+
+def monitor_and_manage_orders(config):
+    api = API(access_token=config['api_token'])
+    try:
+        open_positions = api.request(OpenPositions(accountID=config['account_id']))
+        logging.info(f"Open positions: {open_positions}")
+    except Exception as e:
+        logging.error(f"Error fetching open positions: {e}")
+ 
+--------------------------------------------------- 
+D:\OneDrive\myproject\chatgpt-trader\robot_trader\trading\__init__.py 
+ 
+ 
+ 
